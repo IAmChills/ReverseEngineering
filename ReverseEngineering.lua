@@ -205,10 +205,10 @@ local function updaterawMaterialsList()
             local rawMaterialsList, ownedItems = calculateRawMaterials(itemName, selectedIndex)
             displayrawMaterialsList(itemName, rawMaterialsList, ownedItems)
         else
-            print("Invalid item name for selected index: " .. tostring(selectedIndex))
+            debugPrint("Invalid item name for selected index: " .. tostring(selectedIndex))
         end
     else
-        print("No recipe selected.")
+        debugPrint("No recipe selected.")
     end
 end
 
