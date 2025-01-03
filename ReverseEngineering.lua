@@ -160,7 +160,7 @@ local function calculateRawMaterials(itemName, tradeSkillRecipeId)
 end
 
 -- Function to display the rawMaterials list in the TradeSkillDetailScrollFrame
-local function displayrawMaterialsList(itemName, rawMaterials, ownedItems)
+local function displayRawMaterialsList(itemName, rawMaterials, ownedItems)
     -- Ensure the TradeSkillDetailScrollFrame exists
     local parentFrame = _G["TradeSkillDetailScrollFrame"]
     if not parentFrame then
@@ -203,7 +203,7 @@ local function updateRawMaterialsList()
         local itemName = GetTradeSkillInfo(selectedIndex)
         if itemName then
             local rawMaterialsList, ownedItems = calculateRawMaterials(itemName, selectedIndex)
-            displayrawMaterialsList(itemName, rawMaterialsList, ownedItems)
+            displayRawMaterialsList(itemName, rawMaterialsList, ownedItems)
         else
             debugPrint("Invalid item name for selected index: " .. tostring(selectedIndex))
         end
