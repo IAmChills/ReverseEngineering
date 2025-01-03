@@ -1,15 +1,15 @@
+local function debugPrint(...)
+    if debug then
+        print(...)
+    end
+end
+
 -- Function to recursively build a raw materials list using WoW API
 local function calculateRawMaterials(itemName, tradeSkillRecipeId)
     local rawMaterials = {}
     local ownedItems = {}
     local processedItems = {}
     local debug = false
-
-    local function debugPrint(...)
-        if debug then
-            print(...)
-        end
-    end
 
     local function addMaterial(name, quantity, parentItem, craftedParent)
         if not rawMaterials[name] then
@@ -156,45 +156,64 @@ local function calculateRawMaterials(itemName, tradeSkillRecipeId)
     end
 
     processItem(tradeSkillRecipeId, 1)
-    return rawMaterials, ownedItems
+    return rawMaterials, ownedItems, tradeSkillRecipeId
+end
+
+local function adjustScrollFrame(baseHeight, scrollChild)
+    --local totalHeight = 400 -- Adjust to match extended content height
+    scrollChild:SetHeight(baseHeight / 2)
 end
 
 -- Function to display the rawMaterials list in the TradeSkillDetailScrollFrame
 local function displayRawMaterialsList(itemName, rawMaterials, ownedItems)
-    -- Ensure the TradeSkillDetailScrollFrame exists
     local parentFrame = _G["TradeSkillDetailScrollFrame"]
-    if not parentFrame then
-        --print("Error: TradeSkillDetailScrollFrame not found.")
-        return
+    if not parentFrame then return end
+
+    -- Get the scrollable content frame
+    local scrollChild = parentFrame:GetScrollChild()
+    if not scrollChild then return end
+
+    -- Create or reuse the frame
+    local rawMaterialsListFrame = _G["TradeSkillDetailScrollFramerawMaterialsList"]
+    if not rawMaterialsListFrame then
+        rawMaterialsListFrame = CreateFrame("Frame", "TradeSkillDetailScrollFramerawMaterialsList", scrollChild)
     end
 
-    -- Find or create the rawMaterials list frame
-    local rawMaterialsListFrame = _G["TradeSkillDetailScrollFramerawMaterialsList"] or CreateFrame("Frame", "TradeSkillDetailScrollFramerawMaterialsList", parentFrame)
-    rawMaterialsListFrame:SetSize(parentFrame:GetWidth(), 100)
-    rawMaterialsListFrame:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", 0, 0)
+    -- Calculate height
+    local baseHeight = parentFrame:GetHeight() -- Height of the default frame
+    local numReagents = GetTradeSkillNumReagents(GetTradeSkillSelectionIndex())
 
+    -- Dynamic Calculations
+    local offset = 95 + (math.ceil(numReagents / 2) - 1) * 45
+
+    -- Calculate the total height needed
+    rawMaterialsListFrame:SetSize(parentFrame:GetWidth(), 10)
+    adjustScrollFrame(baseHeight, scrollChild)
+
+    -- Position the frame
+    rawMaterialsListFrame:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -offset)
+
+    -- Create or update content text
     local content = rawMaterialsListFrame.content or rawMaterialsListFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    content:SetPoint("BOTTOMLEFT", rawMaterialsListFrame, "BOTTOMLEFT", 5, 5)
+    content:SetPoint("TOPLEFT", rawMaterialsListFrame, "TOPLEFT", 5, -5)
     content:SetWidth(rawMaterialsListFrame:GetWidth() - 10)
     content:SetJustifyH("LEFT")
 
+    -- Generate the raw materials list text
     local rawMaterialsListText = "\n|cffffd100Raw Materials Needed for " .. itemName .. ":|r\n"
     for material, data in pairs(rawMaterials) do
         local playerCount = GetItemCount(material, true) or 0
         local requiredQuantity = data.quantity
 
-        if data.ownedThroughParent then
-            playerCount = math.max(playerCount, requiredQuantity)  -- Show the actual count or required if higher
-        end
-
         local colorCode = playerCount >= requiredQuantity and "|cff00ff00" or "|cffffffff"
         local colorCode2 = playerCount >= requiredQuantity and "|cff00ff00" or "|cffffd100"
         rawMaterialsListText = rawMaterialsListText .. colorCode .. material .. ": |r" .. colorCode2 .. playerCount .. "/" .. requiredQuantity .. "|r\n"
     end
-    content:SetText(rawMaterialsListText)
+    content:SetText(rawMaterialsListText .. "\n")
     rawMaterialsListFrame.content = content
     rawMaterialsListFrame:Show()
 end
+
 
 -- Function to calculate and display the raw materials list
 local function updateRawMaterialsList()
@@ -212,14 +231,41 @@ local function updateRawMaterialsList()
     end
 end
 
--- Create the frame to handle events
-local eventFrame = CreateFrame("Frame")
-eventFrame:SetScript("OnEvent", function(self, event, ...)
-    if event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_UPDATE" then
+local lastTradeSkillSelectionIndex = nil
+local function monitorTradeSkillSelectionIndex()
+    local currentSelectionIndex = GetTradeSkillSelectionIndex()
+    if currentSelectionIndex ~= lastTradeSkillSelectionIndex then
+        lastTradeSkillSelectionIndex = currentSelectionIndex
         updateRawMaterialsList()
+    end
+end
+
+-- Create a frame to handle OnUpdate
+local monitorFrame = CreateFrame("Frame")
+monitorFrame:SetScript("OnUpdate", function(self, elapsed)
+    monitorTradeSkillSelectionIndex()
+end)
+
+-- Enable/disable monitoring when the trade skill window is shown/hidden
+local function onTradeSkillShow()
+    monitorFrame:Show()
+end
+
+local function onTradeSkillHide()
+    monitorFrame:Hide()
+end
+
+-- Event handling for trade skill window visibility
+local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
+eventFrame:RegisterEvent("TRADE_SKILL_CLOSE")
+eventFrame:SetScript("OnEvent", function(self, event)
+    if event == "TRADE_SKILL_SHOW" then
+        onTradeSkillShow()
+    elseif event == "TRADE_SKILL_CLOSE" then
+        onTradeSkillHide()
     end
 end)
 
--- Register the relevant events
-eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
-eventFrame:RegisterEvent("TRADE_SKILL_UPDATE")
+-- Start with the monitor frame hidden
+monitorFrame:Hide()
