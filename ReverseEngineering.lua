@@ -197,7 +197,7 @@ local function displayrawMaterialsList(itemName, rawMaterials, ownedItems)
 end
 
 -- Function to calculate and display the raw materials list
-local function updaterawMaterialsList()
+local function updateRawMaterialsList()
     local selectedIndex = GetTradeSkillSelectionIndex()
     if selectedIndex then
         local itemName = GetTradeSkillInfo(selectedIndex)
@@ -216,7 +216,7 @@ end
 local eventFrame = CreateFrame("Frame")
 eventFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_UPDATE" then
-        updaterawMaterialsList()
+        updateRawMaterialsList()
     end
 end)
 
