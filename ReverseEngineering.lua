@@ -205,6 +205,10 @@ local function displayRawMaterialsList(itemName, rawMaterials, ownedItems)
         local playerCount = GetItemCount(material, true) or 0
         local requiredQuantity = data.quantity
 
+        if data.ownedThroughParent then
+            playerCount = math.max(playerCount, requiredQuantity)  -- Show the actual count or required if higher
+        end
+
         local colorCode = playerCount >= requiredQuantity and "|cff00ff00" or "|cffffffff"
         local colorCode2 = playerCount >= requiredQuantity and "|cff00ff00" or "|cffffd100"
         rawMaterialsListText = rawMaterialsListText .. colorCode .. material .. ": |r" .. colorCode2 .. playerCount .. "/" .. requiredQuantity .. "|r\n"
