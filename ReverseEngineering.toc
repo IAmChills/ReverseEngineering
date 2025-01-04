@@ -1,4 +1,4 @@
-## Interface: 11505
+## Interface: 11506
 ## Title: Reverse Engineering
 ## Notes: Reverse engineer your recipes into the total raw materials needed!
 ## Version: 1.0
