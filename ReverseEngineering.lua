@@ -4,6 +4,18 @@ local function debugPrint(...)
     end
 end
 
+-- Function to locate index of all parent items
+local function findRecipeIdByName(targetName)
+    local numTradeSkills = GetNumTradeSkills()
+    for index = 1, numTradeSkills do
+        local skillName = GetTradeSkillInfo(index)
+        if skillName == targetName then
+            return index
+        end
+    end
+    return nil
+end
+
 -- Function to recursively build a raw materials list using WoW API
 local function calculateRawMaterials(itemName, tradeSkillRecipeId)
     local rawMaterials = {}
@@ -29,17 +41,6 @@ local function calculateRawMaterials(itemName, tradeSkillRecipeId)
                 rawMaterials[name].craftedParents[parentItem] = true
             end
         end
-    end
-
-    local function findRecipeIdByName(targetName)
-        local numTradeSkills = GetNumTradeSkills()
-        for index = 1, numTradeSkills do
-            local skillName = GetTradeSkillInfo(index)
-            if skillName == targetName then
-                return index
-            end
-        end
-        return nil
     end
 
     local function isItemOwned(checkItemName)
@@ -159,64 +160,108 @@ local function calculateRawMaterials(itemName, tradeSkillRecipeId)
     return rawMaterials, ownedItems, tradeSkillRecipeId
 end
 
-local function adjustScrollFrame(baseHeight, scrollChild)
-    --local totalHeight = 400 -- Adjust to match extended content height
-    scrollChild:SetHeight(baseHeight / 2)
+-- Needs testing
+local function adjustScrollFrame(baseHeight, scrollChild, content)
+    -- Calculate total content height
+    local contentHeight = content:GetStringHeight()
+    local numReagents = GetTradeSkillNumReagents(GetTradeSkillSelectionIndex())
+    local reagentHeight = 95 + (math.ceil(numReagents / 2) - 1) * 45
+    
+    -- Set scroll child height to accommodate all content
+    local totalHeight = reagentHeight + contentHeight + 20 -- 20px padding
+    scrollChild:SetHeight(totalHeight)
 end
 
 -- Function to display the rawMaterials list in the TradeSkillDetailScrollFrame
 local function displayRawMaterialsList(itemName, rawMaterials, ownedItems)
     local parentFrame = _G["TradeSkillDetailScrollFrame"]
     if not parentFrame then return end
-
-    -- Get the scrollable content frame
+ 
     local scrollChild = parentFrame:GetScrollChild()
     if not scrollChild then return end
-
-    -- Create or reuse the frame
+ 
     local rawMaterialsListFrame = _G["TradeSkillDetailScrollFramerawMaterialsList"]
     if not rawMaterialsListFrame then
         rawMaterialsListFrame = CreateFrame("Frame", "TradeSkillDetailScrollFramerawMaterialsList", scrollChild)
     end
-
-    -- Calculate height
-    local baseHeight = parentFrame:GetHeight() -- Height of the default frame
+ 
+    -- Get last reagent frame for positioning
     local numReagents = GetTradeSkillNumReagents(GetTradeSkillSelectionIndex())
+ 
+    -- Get left column position
+    local leftPositionFrame
+    if numReagents > 0 then
+        if numReagents % 2 == 0 then
+            -- Even number of reagents, get second to last reagent (bottom left)
+            leftPositionFrame = _G["TradeSkillReagent" .. (numReagents - 1)]
+        else
+            -- Odd number, get last reagent (already in left column)
+            leftPositionFrame = _G["TradeSkillReagent" .. numReagents]
+        end
+    else
+        leftPositionFrame = TradeSkillReagentLabel or TradeSkillDescription
+    end
 
-    -- Dynamic Calculations
-    local offset = 95 + (math.ceil(numReagents / 2) - 1) * 45
-
-    -- Calculate the total height needed
-    rawMaterialsListFrame:SetSize(parentFrame:GetWidth(), 10)
-    adjustScrollFrame(baseHeight, scrollChild)
-
-    -- Position the frame
-    rawMaterialsListFrame:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -offset)
-
-    -- Create or update content text
+    rawMaterialsListFrame:SetPoint("TOPLEFT", leftPositionFrame, "BOTTOMLEFT", -5, 0)
+ 
     local content = rawMaterialsListFrame.content or rawMaterialsListFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     content:SetPoint("TOPLEFT", rawMaterialsListFrame, "TOPLEFT", 5, -5)
     content:SetWidth(rawMaterialsListFrame:GetWidth() - 10)
     content:SetJustifyH("LEFT")
-
-    -- Generate the raw materials list text
-    local rawMaterialsListText = "\n|cffffd100Raw Materials Needed for " .. itemName .. ":|r\n"
+ 
+    rawMaterialsListFrame:SetSize(parentFrame:GetWidth(), 10)
+    adjustScrollFrame(parentFrame:GetHeight(), scrollChild, content)
+ 
+    local text = "\n|cffffd100Raw Materials Needed for " .. itemName .. ":|r\n"
     for material, data in pairs(rawMaterials) do
-        local playerCount = GetItemCount(material, true) or 0
-        local requiredQuantity = data.quantity
-
-        if data.ownedThroughParent then
-            playerCount = math.max(playerCount, requiredQuantity)  -- Show the actual count or required if higher
+        local directCount = GetItemCount(material, true) or 0
+        local parentMaterials = {}
+        local totalCount = directCount
+        
+        if data.parents then
+            local processedParents = {}  -- Track which parents we've processed
+            for _, parentItem in ipairs(data.parents) do
+                if ownedItems[parentItem] and data.craftedParents[parentItem] and not processedParents[parentItem] then
+                    processedParents[parentItem] = true  -- Mark this parent as processed
+                    local parentCount = GetItemCount(parentItem, true) or 0
+                    if parentCount > 0 then
+                        local matPerParent = 0
+                        local parentRecipeId = findRecipeIdByName(parentItem)
+                        if parentRecipeId then
+                            for i = 1, GetTradeSkillNumReagents(parentRecipeId) do
+                                local reagentName, _, reagentCount = GetTradeSkillReagentInfo(parentRecipeId, i)
+                                if reagentName == material then
+                                    matPerParent = reagentCount
+                                    break
+                                end
+                            end
+                        end
+                        totalCount = totalCount + (parentCount * matPerParent)
+                        table.insert(parentMaterials, parentCount .. " " .. parentItem)
+                    end
+                end
+            end
         end
-
-        local colorCode = playerCount >= requiredQuantity and "|cff00ff00" or "|cffffffff"
-        local colorCode2 = playerCount >= requiredQuantity and "|cff00ff00" or "|cffffd100"
-        rawMaterialsListText = rawMaterialsListText .. colorCode .. material .. ": |r" .. colorCode2 .. playerCount .. "/" .. requiredQuantity .. "|r\n"
+        
+        local colorCode = totalCount >= data.quantity and "|cff00ff00" or "|cffffffff"
+        local colorCode2 = totalCount >= data.quantity and "|cff00ff00" or "|cffffd100"
+        
+        text = text .. colorCode .. material .. ": |r" .. colorCode2 .. totalCount .. "/" .. data.quantity .."|r"
+        
+        if #parentMaterials > 0 then
+            if directCount == 0 then
+                text = text .. " |cff4974ba[" .. table.concat(parentMaterials, " + ") .. "]|r"
+            else
+                text = text .. " |cff4974ba[" .. directCount .. " + " .. table.concat(parentMaterials, " + ") .. "]|r"
+            end
+        end
+        text = text .. "\n"
     end
-    content:SetText(rawMaterialsListText .. "\n")
+    
+    content:SetText(text .. "\n")
     rawMaterialsListFrame.content = content
     rawMaterialsListFrame:Show()
-end
+ end
 
 
 -- Function to calculate and display the raw materials list
@@ -252,6 +297,7 @@ end)
 
 -- Enable/disable monitoring when the trade skill window is shown/hidden
 local function onTradeSkillShow()
+    updateRawMaterialsList()
     monitorFrame:Show()
 end
 
@@ -262,9 +308,10 @@ end
 -- Event handling for trade skill window visibility
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
+eventFrame:RegisterEvent("TRADE_SKILL_UPDATE")
 eventFrame:RegisterEvent("TRADE_SKILL_CLOSE")
 eventFrame:SetScript("OnEvent", function(self, event)
-    if event == "TRADE_SKILL_SHOW" then
+    if event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_UPDATE" then
         onTradeSkillShow()
     elseif event == "TRADE_SKILL_CLOSE" then
         onTradeSkillHide()
