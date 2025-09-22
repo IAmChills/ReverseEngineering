@@ -285,7 +285,9 @@ local function displayRawMaterialsList(itemName, rawMaterials, ownedItems)
         local colorCode2 = totalCount >= data.quantity and "|cff00ff00" or "|cffffd100"
 
         -- Use the item link if available, otherwise fall back to material name
-        local materialText = itemLink or material
+        --local materialText = itemLink or material
+        -- Use Material name instead of itemLink to keep consistent design
+        local materialText = material
         local lineText = colorCode .. materialText .. ": |r" .. colorCode2 .. totalCount .. "/" .. data.quantity .. "|r"
         if #parentMaterials > 0 then
             if directCount == 0 then
@@ -404,3 +406,4 @@ end)
 
 -- Start with the monitor frame hidden
 monitorFrame:Hide()
+
