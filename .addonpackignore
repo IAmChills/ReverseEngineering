@@ -1,0 +1,6 @@
+# folders
+.git
+
+# files
+*.md
+*.addonpackignore
