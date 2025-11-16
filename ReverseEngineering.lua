@@ -147,7 +147,8 @@ local function calculateRawMaterials(itemName, tradeSkillRecipeId)
         local itemLink = GetTradeSkillItemLink(i)
         if itemLink then
             local name = GetItemInfo(itemLink)
-            if name ~= itemName then  -- Never consider the final item as owned
+            -- Sometimes item info isn't cached yet and returns nil; skip those safely
+            if name and name ~= itemName then  -- Never consider the final item as owned
                 ownedItems[name] = GetItemCount(itemLink, true) > 0
                 if ownedItems[name] then
                     debugPrint("Found owned item: " .. name)
