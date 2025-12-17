@@ -312,7 +312,7 @@ local function displayRawMaterialsList(itemName, rawMaterials, ownedItems)
         -- Add tooltip functionality
         line:SetScript("OnEnter", function(self)
             if self.itemLink then
-                GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 GameTooltip:SetHyperlink(self.itemLink)
                 GameTooltip:Show()
             end
