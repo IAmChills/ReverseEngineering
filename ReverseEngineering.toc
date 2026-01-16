@@ -1,7 +1,7 @@
-﻿## Interface: 11508
+﻿## Interface: 11508, 20505
 ## Title: Reverse Engineering
 ## Notes: Reverse engineer your recipes into the total raw materials needed!
-## Version: 1.0.6
+## Version: 1.0.7
 ## Author: Chills
 
 ReverseEngineering.lua
