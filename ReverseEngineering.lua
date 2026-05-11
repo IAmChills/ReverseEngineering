@@ -100,8 +100,18 @@ local function calculateRawMaterials(itemName, tradeSkillRecipeId)
         local adjustedQuantity = math.ceil(quantity / minMade)
 
         local itemLink = GetTradeSkillItemLink(recipeId)
-        local currentItemName = GetItemInfo(itemLink)
-        
+        -- GetItemInfo may be nil until the item is cached; TradeSkill line name is always available.
+        local currentItemName = (itemLink and GetItemInfo(itemLink)) or GetTradeSkillInfo(recipeId)
+        if not currentItemName and itemLink then
+            local id = tonumber(string.match(itemLink, "item:(%d+)"))
+            if id then
+                currentItemName = GetItemInfo(id)
+            end
+        end
+        if not currentItemName then
+            return
+        end
+
         if processedItems[currentItemName] then
             return
         end
